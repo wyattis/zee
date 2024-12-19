@@ -1,0 +1,72 @@
+package main
+
+import (
+	"testing"
+
+	"github.com/wyattis/zee/schema"
+)
+
+var userCommentMigrations = []Migration{
+	{
+		Version: 1,
+		Up: func(s *schema.Schema) {
+			s.Create("user", func(t *schema.Table) {
+				t.Primary("id")
+				t.VarChar("name", 255).Null()
+				t.Integer("age").Null()
+				t.Boolean("active").Default(true)
+				t.Timestamp("created_at").Default(schema.NOW{})
+				t.Timestamp("updated_at").Null()
+			})
+		},
+		Down: func(s *schema.Schema) {
+			s.Drop("user")
+		},
+	},
+	{
+		Version: 2,
+		Up: func(s *schema.Schema) {
+			s.Create("comment", func(t *schema.Table) {
+				t.Primary("id")
+				t.Integer("user_id").References("user", "id")
+				t.Text("body").Null()
+				t.Timestamp("created_at").Default(schema.NOW{})
+				t.Timestamp("updated_at").Null()
+			})
+		},
+		Down: func(s *schema.Schema) {
+			// s.DropForeign("user_id")
+			s.Drop("comment")
+		},
+	},
+}
+
+func TestSqliteUp(t *testing.T) {
+	// sqliteDbFile = "test.db"
+	db, err := setupSqlite()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	if err := MigrateUpTo(userCommentMigrations, db, 1, nil); err != nil {
+		t.Fatalf("Failed the first migration to version 1: %s", err)
+	}
+	if err := MigrateUpTo(userCommentMigrations, db, 1, nil); err != nil {
+		t.Fatalf("Failed the second call to version 1. Migration should be idempotent: %s", err)
+	}
+	if err := MigrateUpTo(userCommentMigrations, db, 2, nil); err != nil {
+		t.Fatalf("Failed the first call to version 2: %s", err)
+	}
+	if err := MigrateUpTo(userCommentMigrations, db, 2, nil); err != nil {
+		t.Fatalf("Failed the second call to version 2. Migration should be idempotent: %s", err)
+	}
+
+	if _, err = db.Exec("INSERT INTO user (name, age) VALUES ('John', 30)"); err != nil {
+		t.Fatalf("Failed to insert user: %s", err)
+	}
+	if _, err = db.Exec("INSERT INTO comment (user_id, body) VALUES (1, 'Hello, world!')"); err != nil {
+		t.Fatalf("Failed to insert comment: %s", err)
+	}
+
+}
