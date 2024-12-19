@@ -1,4 +1,4 @@
-package main
+package zee
 
 import (
 	"github.com/wyattis/zee/isql/driver"

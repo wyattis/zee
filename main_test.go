@@ -1,4 +1,4 @@
-package main
+package zee
 
 import (
 	"database/sql"
